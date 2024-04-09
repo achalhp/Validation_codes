@@ -18,13 +18,13 @@ function math_axisAngleToR(axis,omega) result(math_axisAngleToR1)
     1, 0, 0, &
     0, 1, 0, &
     0, 0, 1  &
-    ],shape(I3)))                                                                      !< 3x3 Identity
+    ],shape(I3)))                                              !< 3x3 Identity
 
   real, dimension(3,3) :: math_axisAngleToR1
   
   norm = norm2(axis)
   wellDefined: if (norm > 1.0e-8) then
-    n = axis/norm                                                                                    ! normalize axis to be sure
+    n = axis/norm                                             ! normalize axis to be sure
   
     s = sin(omega)
     c = cos(omega)
@@ -112,23 +112,26 @@ program corresponcence_matrix
       1, 0, 0, &
       0, 1, 0, &
       0, 0, 1  &
-      ],shape(I3)))                                                                      !< 3x3 Identity
+      ],shape(I3)))                                                             !< 3x3 Identity
 
     integer :: &
     a, &                                                                        !< index of active system
     p, &                                                                        !< index in potential system matrix
     f, &                                                                        !< index of my family
-    s, f1, s1, e1, i, j, k                                                                      !< index of my system in current family
+    s, &                                                                        !< index of my system in current family
+    f1, s1, e1, i, j, k                                                         !< indices for similar loops
 
 
-    
+    !--------------------------------------------------------------------
+    !> Normal vector to twin plane and direction vector of the twin
+    !--------------------------------------------------------------------
     
     a = 0
-    do f = 1, size(active,1)                                                    !< Loops 1 to 4 for hP
-        do s = 1, active(f)                                                     !< 1 to 6 two times
+    do f = 1, size(active,1)                                                    !< Active Twin Modes
+        do s = 1, active(f)                                                     !< Active twin systems
             
             a = a + 1
-            p = sum(potential(1:f-1))+s                                         !< 1 to 6 and 13 to 18
+            p = sum(potential(1:f-1))+s                                         
             
             direction = [ system(1,p)*1.5, &
             (system(1,p)+2.0*system(2,p))*sqrt(0.75), &
@@ -146,7 +149,11 @@ program corresponcence_matrix
         end do
     end do
 
-    do f1 = 1,size(active,1)
+    !--------------------------------------------------------------------
+    !> Magnitude of Characteristic shear for twinning modes 
+    !--------------------------------------------------------------------
+
+    do f1 = 1,size(active,1)                                                    !< Active twin modes
       s1 = sum(active(:f1-1)) + 1
       e1 = sum(active(:f1))
       select case(f1)
@@ -161,29 +168,48 @@ program corresponcence_matrix
       end select
     enddo
     
-    write(6,*)'characteristic shear, 1,  0, -1,  1,    -1,  0,  1,  2, = ',characteristicShear(4)
-    write(6,*)'characteristic shear, -1, -1,  2,  6,     1,  1, -2,  1, =',characteristicShear(7)
-    write(6,*)'characteristic shear, 1,  0, -1, -2,     1,  0, -1,  1, =',characteristicShear(13)
-    write(6,*)'characteristic shear, 1,  1, -2, -3,     1,  1, -2,  2, =',characteristicShear(19)
+    !> Write results for characteristic shear
 
+    write(6,*)'characteristic shear, for [1,  0, -1,  1],(-1,  0,  1,  2)'
+    write(6,*)characteristicShear(4)
+    write(6,*)'characteristic shear, for [-1, -1,  2,  6],(1,  1, -2,  1)'
+    write(6,*)characteristicShear(7)
+    write(6,*)'characteristic shear, for [1,  0, -1, -2],(1,  0, -1,  1)'
+    write(6,*)characteristicShear(13)
+    write(6,*)'characteristic shear, for [1,  1, -2, -3],(1,  1, -2,  2)'
+    write(6,*)characteristicShear(19)
+    
+    !--------------------------------------------------------------------
+    !> SchmidMatrix = Outer product of direction and normal vectors.
+    !--------------------------------------------------------------------
 
     do i = 1, sum(active)
       forall(j=1:3, k=1:3) SchmidMatrix(j,k,i) = direction_vector(j,i) * normal_vector(k,i)
     enddo
+
+    !--------------------------------------------------------------------
+    !> Correspondence Matrix = Reorientation * Shear
+    !--------------------------------------------------------------------
 
     do i = 1, sum(active)
       corresponcenceMatrix(1:3,1:3,i) = matmul(math_axisAngleToR(normal_vector(1:3,i),pi),&
                                                I3+characteristicShear(i)*SchmidMatrix(1:3,1:3,i))
       
     enddo
+
+    !> Write results for Correspondence Matrix
     
-    write(6,*)'correspondence matrix for 1,  0, -1,  1,    -1,  0,  1,  2 =====',corresponcenceMatrix(1:3,1:3,4)
-    write(6,*)'ooooooooooooooooooooooooooooooooooooooooooooooo'
-    write(6,*)'correspondence matrix for -1, -1,  2,  6,     1,  1, -2,  1 =====',corresponcenceMatrix(1:3,1:3,7)
-    write(6,*)'ooooooooooooooooooooooooooooooooooooooooooooooo'
-    write(6,*)'correspondence matrix for 1,  0, -1, -2,     1,  0, -1,  1 =====',corresponcenceMatrix(1:3,1:3,13)
-    write(6,*)'ooooooooooooooooooooooooooooooooooooooooooooooo'
-    write(6,*)'correspondence matrix for 1,  1, -2, -3,     1,  1, -2,  2 =====',corresponcenceMatrix(1:3,1:3,19)
+    write(6,*)'correspondence matrix for [1,  0, -1,  1],(-1,  0,  1,  2)'
+    write(6,*)corresponcenceMatrix(1:3,1:3,4)
+    write(6,*)'oxoxoxoxoxoxoxoxoxoxoxoxoxoxoxoxoxoxoxoxoxoxoxox'
+    write(6,*)'correspondence matrix for [-1, -1,  2,  6],(1,  1, -2,  1)'
+    write(6,*)corresponcenceMatrix(1:3,1:3,7)
+    write(6,*)'oxoxoxoxoxoxoxoxoxoxoxoxoxoxoxoxoxoxoxoxoxoxoxox'
+    write(6,*)'correspondence matrix for [1,  0, -1, -2],(1,  0, -1,  1)'
+    write(6,*)corresponcenceMatrix(1:3,1:3,13)
+    write(6,*)'oxoxoxoxoxoxoxoxoxoxoxoxoxoxoxoxoxoxoxoxoxoxoxox'
+    write(6,*)'correspondence matrix for [1,  1, -2, -3],(1,  1, -2,  2)'
+    write(6,*)corresponcenceMatrix(1:3,1:3,19)
 
 
 end program corresponcence_matrix
